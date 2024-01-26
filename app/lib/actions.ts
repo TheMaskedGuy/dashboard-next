@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { sql } from '@vercel/postgres';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { signIn } from '@/auth';
+import { AuthError } from 'next-auth';
 
 const FormSchema = z.object({
   id: z.string(),
@@ -88,7 +90,7 @@ export async function updateInvoice(id: string, formData: FormData) {
     };
   }
 
-  const {customerId, amount, status} = validatedFields.data;
+  const { customerId, amount, status } = validatedFields.data;
   const amountInCents = amount * 100;
 
   try {
@@ -114,4 +116,20 @@ export async function deleteInvoice(id: string) {
   }
   revalidatePath('/dashboard/invoices'); //Force refresh, i.e. invaldate client cache and fetch new data
   //No need to redirect, let user delete more if needed!
+}
+
+export async function authenticate(prevState: string | undefined, formData: FormData) {
+  try {
+    return await signIn('credentials', formData);
+  } catch (e) {
+    if (e instanceof AuthError) {
+      switch (e.type) {
+        case 'CredentialsSignin':
+          return 'Invalid credentials.';
+        default:
+          return 'Something went wrong.';
+      }
+    }
+    throw e;
+  }
 }
